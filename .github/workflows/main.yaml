@@ -1,0 +1,57 @@
+name: Build & Test
+
+# This setup will run the workflow whenever the main branch is pushed
+# to, and whenever a Pull Request is opened. workflow_dispatch allows you
+# to trigger the workflow manually from GitHub's Actions page.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # You can split the workflow into multiple jobs that can run simultaneously.
+  # This doesn't make a lot of sense in our example though, because each step is required to be run in serial.
+  # Build requires install, test requires build, SonarQube requires test.
+  build-test:
+    # Choose the type of box your job should run on.
+    runs-on: [self-hosted, ubuntu-latest]
+    steps:
+      # This step checks out the code from the repository into the workspace.
+      # This is an open source community-developed action.
+      # More community actions can be found here: https://github.com/actions
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # This ensures all the git history is retrieved when checking out.
+          # This is important for some SonarQube workflows.
+          fetch-depth: 0
+
+      # Sets up Node.js in the workspace.
+      # You can choose which version is required for your project.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: 'yarn'
+
+      # The following are custom steps that simply run bash commands
+      - name: install
+        run: yarn install --immutable
+
+      - name: lint
+        run: yarn lint
+
+      - name: build
+        run: yarn build
+
+      - name: unit tests
+        run: yarn test
+
+      # This is an open source Action that runs a SonarQube scan on your code.
+      - name: sonarqube
+        uses: sonarsource/sonarqube-scan-action@v5.1
+        env:
+          # GitHub will auto generate this
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+          SONAR_HOST_URL: https://sonarqube.xyz.com
